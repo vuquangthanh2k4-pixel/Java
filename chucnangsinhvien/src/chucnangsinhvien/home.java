@@ -6,6 +6,8 @@ package chucnangsinhvien;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 /**
@@ -15,38 +17,61 @@ import javax.swing.table.DefaultTableModel;
 public class home extends javax.swing.JFrame {
     private Connection connection;
     private DefaultTableModel tableModel;
-    private int currentUserId = 3; 
-
+    private int currentUserId = 3;
     /**
      * Creates new form home
      */
     public home() {
+   
         initComponents();
         initDatabase();
         setupTable();
         showBorrowedBooks();
+        setupEventListeners();
+        addMenuButtons();
+        setupPasswordFields();
+        setupCardLayout();
     }
- private void initDatabase() {
+
+    private void initDatabase() {
         try {
-            String url = "jdbc:sqlserver://localhost:1433;databaseName=QLThuVien;encrypt=true;trustServerCertificate=true";
-            String username = "sa";
-            String password = "123456";
-            connection = DriverManager.getConnection(url, username, password);
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Lỗi kết nối database: " + e.getMessage());
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/mysql", "root", "phamq20579");
+            System.out.println("Kết nối database thành công!");
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(home.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Lỗi driver MySQL: " + ex.getMessage());
+        } catch (SQLException ex) {
+            Logger.getLogger(home.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Lỗi kết nối database: " + ex.getMessage());
         }
+    }
+
+    // Thiết lập các trường mật khẩu
+    private void setupPasswordFields() {
+        // Thiết lập mật khẩu ẩn mặc định
+        ptxt1.setEchoChar('*');
+        ptxt2.setEchoChar('*');
+        ptxt3.setEchoChar('*');
+    }
+
+    // Thiết lập card layout
+    private void setupCardLayout() {
+        // Đảm bảo pnlCards sử dụng CardLayout
+        pnlCards.setLayout(new java.awt.CardLayout());
+        
+        // Thêm các panel vào card layout với tên
+        pnlCards.add(pnlCard1, "card1");
+        pnlCards.add(pnlCard2, "card2");
+        pnlCards.add(pnlCard3, "card3");
     }
 
     // Thiết lập bảng
     private void setupTable() {
         tableModel = new DefaultTableModel();
-        // Tạo JTable và thêm vào pnlCard2 (thông tin mượn sách)
-        javax.swing.JTable table = new javax.swing.JTable(tableModel);
-        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(table);
         
-        pnlCard2.removeAll();
-        pnlCard2.setLayout(new java.awt.BorderLayout());
-        pnlCard2.add(scrollPane, java.awt.BorderLayout.CENTER);
+        // Sử dụng tbl2 có sẵn trong form
+        tbl2.setModel(tableModel);
         
         // Thêm các cột cho bảng
         tableModel.addColumn("Mã Phiếu");
@@ -60,6 +85,11 @@ public class home extends javax.swing.JFrame {
     // Hiển thị sách đang mượn
     private void showBorrowedBooks() {
         try {
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
+            
             tableModel.setRowCount(0); // Xóa dữ liệu cũ
             
             String sql = "SELECT pm.IdPhieuMuon, sdm.NgayMuon, sdm.NgayTraThucTe, " +
@@ -98,29 +128,37 @@ public class home extends javax.swing.JFrame {
     // Tìm sách
     private void searchBooks() {
         try {
-            String searchTerm = JOptionPane.showInputDialog(this, "Nhập tên sách cần tìm:");
-            if (searchTerm == null || searchTerm.trim().isEmpty()) return;
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
             
-            // Xóa pnlCard3 và thêm bảng tìm kiếm
-            pnlCard3.removeAll();
-            pnlCard3.setLayout(new java.awt.BorderLayout());
+            String searchTerm = txt1.getText().trim();
+            if (searchTerm.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập tên sách cần tìm!");
+                return;
+            }
             
+            // Sử dụng tb1 có sẵn trong form
             DefaultTableModel searchModel = new DefaultTableModel();
             searchModel.addColumn("Mã Sách");
             searchModel.addColumn("Tên Sách");
             searchModel.addColumn("Tác Giả");
-            searchModel.addColumn("Tình Trạng");
+            searchModel.addColumn("Thể Loại");
+            searchModel.addColumn("Năm XB");
             
-            javax.swing.JTable searchTable = new javax.swing.JTable(searchModel);
-            javax.swing.JScrollPane searchScroll = new javax.swing.JScrollPane(searchTable);
-            pnlCard3.add(searchScroll, java.awt.BorderLayout.CENTER);
+            tb1.setModel(searchModel);
             
-            String sql = "SELECT IdSach, TenSach, TacGia, TinhTrang FROM Sach " +
-                        "WHERE TenSach LIKE ? OR TacGia LIKE ?";
+            // Query tìm sách
+            String sql = "SELECT s.IdSach, s.TenSach, tg.TenTacGia, s.TheLoai, s.NamXuatBan " +
+                        "FROM Sach s " +
+                        "JOIN TacGia tg ON s.IdTacGia = tg.IdTacGia " +
+                        "WHERE s.TenSach LIKE ? OR tg.TenTacGia LIKE ? OR s.TheLoai LIKE ?";
             
             PreparedStatement pstmt = connection.prepareStatement(sql);
             pstmt.setString(1, "%" + searchTerm + "%");
             pstmt.setString(2, "%" + searchTerm + "%");
+            pstmt.setString(3, "%" + searchTerm + "%");
             
             ResultSet rs = pstmt.executeQuery();
             
@@ -129,8 +167,9 @@ public class home extends javax.swing.JFrame {
                 Object[] row = {
                     rs.getInt("IdSach"),
                     rs.getString("TenSach"),
-                    rs.getString("TacGia"),
-                    rs.getString("TinhTrang")
+                    rs.getString("TenTacGia"),
+                    rs.getString("TheLoai"),
+                    rs.getInt("NamXuatBan")
                 };
                 searchModel.addRow(row);
                 count++;
@@ -140,9 +179,6 @@ public class home extends javax.swing.JFrame {
                 JOptionPane.showMessageDialog(this, "Không tìm thấy sách phù hợp!");
             } else {
                 JOptionPane.showMessageDialog(this, "Tìm thấy " + count + " sách!");
-                // Chuyển sang tab tìm sách
-                java.awt.CardLayout cardLayout = (java.awt.CardLayout) pnlCards.getLayout();
-                cardLayout.show(pnlCards, "card4");
             }
             
             rs.close();
@@ -156,13 +192,18 @@ public class home extends javax.swing.JFrame {
     // Mượn sách mới
     private void borrowNewBook() {
         try {
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
+            
             String bookIdStr = JOptionPane.showInputDialog(this, "Nhập mã sách muốn mượn:");
             if (bookIdStr == null || bookIdStr.trim().isEmpty()) return;
             
             int bookId = Integer.parseInt(bookIdStr);
             
-            // Kiểm tra sách có tồn tại và có sẵn không
-            String checkSql = "SELECT TenSach, TinhTrang FROM Sach WHERE IdSach = ?";
+            // Kiểm tra sách có tồn tại không
+            String checkSql = "SELECT TenSach FROM Sach WHERE IdSach = ?";
             PreparedStatement checkStmt = connection.prepareStatement(checkSql);
             checkStmt.setInt(1, bookId);
             ResultSet rs = checkStmt.executeQuery();
@@ -173,10 +214,32 @@ public class home extends javax.swing.JFrame {
             }
             
             String bookName = rs.getString("TenSach");
-            String status = rs.getString("TinhTrang");
             
-            if (!"Có sẵn".equals(status)) {
-                JOptionPane.showMessageDialog(this, "Sách '" + bookName + "' hiện không có sẵn!");
+            // Kiểm tra sách đã được mượn chưa
+            String checkBorrowedSql = "SELECT COUNT(*) FROM SachDuocMuon WHERE IdSach = ? AND TrangThaiSach = 'Đang mượn'";
+            PreparedStatement checkBorrowedStmt = connection.prepareStatement(checkBorrowedSql);
+            checkBorrowedStmt.setInt(1, bookId);
+            ResultSet borrowedRs = checkBorrowedStmt.executeQuery();
+            borrowedRs.next();
+            int borrowedCount = borrowedRs.getInt(1);
+            
+            if (borrowedCount > 0) {
+                JOptionPane.showMessageDialog(this, "Sách '" + bookName + "' đang được mượn!");
+                return;
+            }
+            
+            // Kiểm tra sinh viên đã mượn quá 3 sách chưa
+            String checkLimitSql = "SELECT COUNT(*) FROM SachDuocMuon sdm " +
+                                 "JOIN PhieuMuon pm ON sdm.IdPhieuMuon = pm.IdPhieuMuon " +
+                                 "WHERE pm.IdSinhVien = ? AND sdm.TrangThaiSach = 'Đang mượn'";
+            PreparedStatement checkLimitStmt = connection.prepareStatement(checkLimitSql);
+            checkLimitStmt.setInt(1, currentUserId);
+            ResultSet limitRs = checkLimitStmt.executeQuery();
+            limitRs.next();
+            int borrowedBooksCount = limitRs.getInt(1);
+            
+            if (borrowedBooksCount >= 3) {
+                JOptionPane.showMessageDialog(this, "Bạn đã mượn tối đa 3 sách. Vui lòng trả sách trước khi mượn thêm!");
                 return;
             }
             
@@ -203,20 +266,17 @@ public class home extends javax.swing.JFrame {
             sachStmt.setInt(3, phieuMuonId);
             sachStmt.executeUpdate();
             
-            // Cập nhật trạng thái sách
-            String updateSachSql = "UPDATE Sach SET TinhTrang = 'Đang mượn' WHERE IdSach = ?";
-            PreparedStatement updateStmt = connection.prepareStatement(updateSachSql);
-            updateStmt.setInt(1, bookId);
-            updateStmt.executeUpdate();
-            
             JOptionPane.showMessageDialog(this, "Mượn sách '" + bookName + "' thành công!\nMã phiếu: " + phieuMuonId);
             
             // Đóng các statement
             rs.close();
+            borrowedRs.close();
+            limitRs.close();
             checkStmt.close();
+            checkBorrowedStmt.close();
+            checkLimitStmt.close();
             phieuStmt.close();
             sachStmt.close();
-            updateStmt.close();
             
             // Cập nhật lại danh sách
             showBorrowedBooks();
@@ -228,25 +288,92 @@ public class home extends javax.swing.JFrame {
         }
     }
 
+    // Trả sách
+    private void returnBook() {
+        try {
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
+            
+            String phieuIdStr = JOptionPane.showInputDialog(this, "Nhập mã phiếu mượn cần trả:");
+            if (phieuIdStr == null || phieuIdStr.trim().isEmpty()) return;
+            
+            int phieuId = Integer.parseInt(phieuIdStr);
+            
+            // Kiểm tra phiếu mượn có tồn tại và thuộc về sinh viên này không
+            String checkSql = "SELECT sdm.IdSach, s.TenSach " +
+                            "FROM SachDuocMuon sdm " +
+                            "JOIN PhieuMuon pm ON sdm.IdPhieuMuon = pm.IdPhieuMuon " +
+                            "JOIN Sach s ON sdm.IdSach = s.IdSach " +
+                            "WHERE pm.IdPhieuMuon = ? AND pm.IdSinhVien = ? AND sdm.TrangThaiSach = 'Đang mượn'";
+            
+            PreparedStatement checkStmt = connection.prepareStatement(checkSql);
+            checkStmt.setInt(1, phieuId);
+            checkStmt.setInt(2, currentUserId);
+            ResultSet rs = checkStmt.executeQuery();
+            
+            if (!rs.next()) {
+                JOptionPane.showMessageDialog(this, "Không tìm thấy phiếu mượn hợp lệ!");
+                return;
+            }
+            
+            int bookId = rs.getInt("IdSach");
+            String bookName = rs.getString("TenSach");
+            
+            // Cập nhật trạng thái trả sách
+            String updateSachMuonSql = "UPDATE SachDuocMuon SET NgayTraThucTe = ?, TrangThaiSach = 'Đã trả' WHERE IdPhieuMuon = ?";
+            PreparedStatement updateStmt = connection.prepareStatement(updateSachMuonSql);
+            updateStmt.setDate(1, new java.sql.Date(new Date().getTime()));
+            updateStmt.setInt(2, phieuId);
+            updateStmt.executeUpdate();
+            
+            JOptionPane.showMessageDialog(this, "Trả sách '" + bookName + "' thành công!");
+            
+            // Đóng các statement
+            rs.close();
+            checkStmt.close();
+            updateStmt.close();
+            
+            // Cập nhật lại danh sách
+            showBorrowedBooks();
+            
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Mã phiếu phải là số!");
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi trả sách: " + e.getMessage());
+        }
+    }
+
     // Đổi mật khẩu
     private void changePassword() {
         try {
-            String currentPass = JOptionPane.showInputDialog(this, "Nhập mật khẩu hiện tại:");
-            if (currentPass == null) return;
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
             
-            String newPass = JOptionPane.showInputDialog(this, "Nhập mật khẩu mới:");
-            if (newPass == null) return;
+            String currentPass = new String(ptxt1.getPassword());
+            String newPass = new String(ptxt2.getPassword());
+            String confirmPass = new String(ptxt3.getPassword());
             
-            String confirmPass = JOptionPane.showInputDialog(this, "Xác nhận mật khẩu mới:");
-            if (confirmPass == null) return;
+            if (currentPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!");
+                return;
+            }
             
             if (!newPass.equals(confirmPass)) {
                 JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!");
                 return;
             }
             
-            // Kiểm tra mật khẩu hiện tại (giả sử có bảng Users)
-            String checkSql = "SELECT COUNT(*) FROM Users WHERE IdSinhVien = ? AND Password = ?";
+            if (newPass.length() < 6) {
+                JOptionPane.showMessageDialog(this, "Mật khẩu phải có ít nhất 6 ký tự!");
+                return;
+            }
+            
+            // Kiểm tra mật khẩu hiện tại - sử dụng bảng taikhoan
+            String checkSql = "SELECT COUNT(*) FROM taikhoan WHERE IdTaiKhoan = ? AND MatKhau = ?";
             PreparedStatement checkStmt = connection.prepareStatement(checkSql);
             checkStmt.setInt(1, currentUserId);
             checkStmt.setString(2, currentPass);
@@ -259,13 +386,21 @@ public class home extends javax.swing.JFrame {
             }
             
             // Cập nhật mật khẩu mới
-            String updateSql = "UPDATE Users SET Password = ? WHERE IdSinhVien = ?";
+            String updateSql = "UPDATE taikhoan SET MatKhau = ? WHERE IdTaiKhoan = ?";
             PreparedStatement updateStmt = connection.prepareStatement(updateSql);
             updateStmt.setString(1, newPass);
             updateStmt.setInt(2, currentUserId);
-            updateStmt.executeUpdate();
+            int rowsUpdated = updateStmt.executeUpdate();
             
-            JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công!");
+            if (rowsUpdated > 0) {
+                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công!");
+                // Xóa trắng các trường
+                ptxt1.setText("");
+                ptxt2.setText("");
+                ptxt3.setText("");
+            } else {
+                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thất bại!");
+            }
             
             rs.close();
             checkStmt.close();
@@ -275,6 +410,181 @@ public class home extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(this, "Lỗi khi đổi mật khẩu: " + e.getMessage());
         }
     }
+
+    // Thiết lập sự kiện
+    private void setupEventListeners() {
+        // Sự kiện cho nút tìm kiếm
+        btntk.addActionListener(e -> {
+            if (rdbtn1.isSelected()) {
+                searchBooks();
+            } else if (rdbtn2.isSelected()) {
+                searchByCategory();
+            } else {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn loại tìm kiếm!");
+            }
+        });
+        
+        // Sự kiện cho checkbox hiển thị mật khẩu
+        check1.addActionListener(e -> {
+            if (check1.isSelected()) {
+                ptxt1.setEchoChar((char)0); // Hiển thị mật khẩu
+            } else {
+                ptxt1.setEchoChar('*'); // Ẩn mật khẩu
+            }
+        });
+        
+        check2.addActionListener(e -> {
+            if (check2.isSelected()) {
+                ptxt2.setEchoChar((char)0); // Hiển thị mật khẩu
+            } else {
+                ptxt2.setEchoChar('*'); // Ẩn mật khẩu
+            }
+        });
+        
+        check3.addActionListener(e -> {
+            if (check3.isSelected()) {
+                ptxt3.setEchoChar((char)0); // Hiển thị mật khẩu
+            } else {
+                ptxt3.setEchoChar('*'); // Ẩn mật khẩu
+            }
+        });
+        
+        // Sự kiện cho nút đổi mật khẩu
+        btn6.addActionListener(e -> changePassword());
+        
+        // Sự kiện cho nút hủy đổi mật khẩu
+        btn7.addActionListener(e -> {
+            ptxt1.setText("");
+            ptxt2.setText("");
+            ptxt3.setText("");
+            // Đặt lại về trạng thái ẩn mật khẩu
+            ptxt1.setEchoChar('*');
+            ptxt2.setEchoChar('*');
+            ptxt3.setEchoChar('*');
+            check1.setSelected(false);
+            check2.setSelected(false);
+            check3.setSelected(false);
+        });
+        
+        // Sự kiện cho radio button tìm kiếm
+        rdbtn1.addActionListener(e -> {
+            if (rdbtn1.isSelected()) {
+                txt1.setEnabled(true);
+                txt2.setEnabled(false);
+                cb1.setEnabled(false);
+                txt1.requestFocus();
+            }
+        });
+        
+        rdbtn2.addActionListener(e -> {
+            if (rdbtn2.isSelected()) {
+                txt1.setEnabled(false);
+                txt2.setEnabled(true);
+                cb1.setEnabled(true);
+                loadCategories();
+                txt2.requestFocus();
+            }
+        });
+    }
+
+    // Tải danh mục thể loại
+    private void loadCategories() {
+        try {
+            if (connection == null || connection.isClosed()) return;
+            
+            String sql = "SELECT DISTINCT TheLoai FROM Sach";
+            PreparedStatement pstmt = connection.prepareStatement(sql);
+            ResultSet rs = pstmt.executeQuery();
+            
+            cb1.removeAllItems();
+            cb1.addItem("-- Tất cả thể loại --");
+            while (rs.next()) {
+                cb1.addItem(rs.getString("TheLoai"));
+            }
+            
+            rs.close();
+            pstmt.close();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải thể loại: " + e.getMessage());
+        }
+    }
+
+    // Tìm sách theo thể loại
+    private void searchByCategory() {
+        try {
+            if (connection == null || connection.isClosed()) {
+                JOptionPane.showMessageDialog(this, "Không có kết nối database!");
+                return;
+            }
+            
+            String category = cb1.getSelectedItem().toString();
+            String author = txt2.getText().trim();
+            
+            if (category.equals("-- Tất cả thể loại --") && author.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập tác giả hoặc chọn thể loại cụ thể!");
+                return;
+            }
+            
+            // Sử dụng tb1 có sẵn trong form
+            DefaultTableModel searchModel = new DefaultTableModel();
+            searchModel.addColumn("Mã Sách");
+            searchModel.addColumn("Tên Sách");
+            searchModel.addColumn("Tác Giả");
+            searchModel.addColumn("Thể Loại");
+            searchModel.addColumn("Năm XB");
+            
+            tb1.setModel(searchModel);
+            
+            // Query tìm sách theo thể loại và tác giả
+            String sql;
+            PreparedStatement pstmt;
+            
+            if (category.equals("-- Tất cả thể loại --")) {
+                sql = "SELECT s.IdSach, s.TenSach, tg.TenTacGia, s.TheLoai, s.NamXuatBan " +
+                      "FROM Sach s " +
+                      "JOIN TacGia tg ON s.IdTacGia = tg.IdTacGia " +
+                      "WHERE tg.TenTacGia LIKE ?";
+                pstmt = connection.prepareStatement(sql);
+                pstmt.setString(1, "%" + author + "%");
+            } else {
+                sql = "SELECT s.IdSach, s.TenSach, tg.TenTacGia, s.TheLoai, s.NamXuatBan " +
+                      "FROM Sach s " +
+                      "JOIN TacGia tg ON s.IdTacGia = tg.IdTacGia " +
+                      "WHERE s.TheLoai = ? AND tg.TenTacGia LIKE ?";
+                pstmt = connection.prepareStatement(sql);
+                pstmt.setString(1, category);
+                pstmt.setString(2, "%" + author + "%");
+            }
+            
+            ResultSet rs = pstmt.executeQuery();
+            
+            int count = 0;
+            while (rs.next()) {
+                Object[] row = {
+                    rs.getInt("IdSach"),
+                    rs.getString("TenSach"),
+                    rs.getString("TenTacGia"),
+                    rs.getString("TheLoai"),
+                    rs.getInt("NamXuatBan")
+                };
+                searchModel.addRow(row);
+                count++;
+            }
+            
+            if (count == 0) {
+                JOptionPane.showMessageDialog(this, "Không tìm thấy sách phù hợp!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Tìm thấy " + count + " sách!");
+            }
+            
+            rs.close();
+            pstmt.close();
+            
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi tìm sách: " + e.getMessage());
+        }
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -284,11 +594,39 @@ public class home extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jSplitPane1 = new javax.swing.JSplitPane();
         pnlCards = new javax.swing.JPanel();
+        layout = new javax.swing.JPanel();
         pnlCard1 = new javax.swing.JPanel();
+        lbl1 = new javax.swing.JLabel();
+        txt1 = new javax.swing.JTextField();
+        rdbtn1 = new javax.swing.JRadioButton();
+        rdbtn2 = new javax.swing.JRadioButton();
+        txt2 = new javax.swing.JTextField();
+        jLabel4 = new javax.swing.JLabel();
+        jLabel5 = new javax.swing.JLabel();
+        jLabel6 = new javax.swing.JLabel();
+        cb1 = new javax.swing.JComboBox<>();
+        btntk = new javax.swing.JButton();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        tb1 = new javax.swing.JTable();
         pnlCard2 = new javax.swing.JPanel();
+        jLabel3 = new javax.swing.JLabel();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        tbl2 = new javax.swing.JTable();
         pnlCard3 = new javax.swing.JPanel();
+        jLabel7 = new javax.swing.JLabel();
+        jLabel8 = new javax.swing.JLabel();
+        jLabel9 = new javax.swing.JLabel();
+        check1 = new javax.swing.JCheckBox();
+        check2 = new javax.swing.JCheckBox();
+        check3 = new javax.swing.JCheckBox();
+        btn6 = new javax.swing.JButton();
+        btn7 = new javax.swing.JButton();
+        jLabel10 = new javax.swing.JLabel();
+        ptxt1 = new javax.swing.JPasswordField();
+        ptxt2 = new javax.swing.JPasswordField();
+        ptxt3 = new javax.swing.JPasswordField();
+        jLabel1 = new javax.swing.JLabel();
         jPanel1 = new javax.swing.JPanel();
         pnlflow = new javax.swing.JPanel();
         jLabel2 = new javax.swing.JLabel();
@@ -300,54 +638,300 @@ public class home extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setAlwaysOnTop(true);
 
-        pnlCards.setLayout(new java.awt.CardLayout());
+        pnlCards.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
+
+        javax.swing.GroupLayout layoutLayout = new javax.swing.GroupLayout(layout);
+        layout.setLayout(layoutLayout);
+        layoutLayout.setHorizontalGroup(
+            layoutLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 870, Short.MAX_VALUE)
+        );
+        layoutLayout.setVerticalGroup(
+            layoutLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 755, Short.MAX_VALUE)
+        );
+
+        pnlCards.add(layout, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 870, -1));
 
         pnlCard1.setBackground(new java.awt.Color(153, 153, 255));
+
+        lbl1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
+        lbl1.setText("TÌM KIẾM");
+
+        rdbtn1.setText("theo tên");
+        rdbtn1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                rdbtn1ActionPerformed(evt);
+            }
+        });
+
+        rdbtn2.setText("theo loại");
+        rdbtn2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                rdbtn2ActionPerformed(evt);
+            }
+        });
+
+        jLabel4.setText("Tên Sách");
+
+        jLabel5.setText("Tác giả");
+
+        jLabel6.setText("Thể loại");
+
+        cb1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cb1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cb1ActionPerformed(evt);
+            }
+        });
+
+        btntk.setText("tìm kiếm");
+        btntk.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btntkActionPerformed(evt);
+            }
+        });
+
+        tb1.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane1.setViewportView(tb1);
 
         javax.swing.GroupLayout pnlCard1Layout = new javax.swing.GroupLayout(pnlCard1);
         pnlCard1.setLayout(pnlCard1Layout);
         pnlCard1Layout.setHorizontalGroup(
             pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addGroup(pnlCard1Layout.createSequentialGroup()
+                .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(198, 198, 198)
+                        .addComponent(lbl1))
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(71, 71, 71)
+                        .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(jLabel4)
+                            .addComponent(jLabel5)
+                            .addComponent(jLabel6))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(txt1)
+                            .addComponent(txt2)
+                            .addComponent(cb1, 0, 271, Short.MAX_VALUE))
+                        .addGap(18, 18, 18)
+                        .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(rdbtn1)
+                            .addComponent(rdbtn2))))
+                .addGap(0, 0, Short.MAX_VALUE))
+            .addGroup(pnlCard1Layout.createSequentialGroup()
+                .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(179, 179, 179)
+                        .addComponent(btntk))
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(17, 17, 17)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(401, Short.MAX_VALUE))
         );
         pnlCard1Layout.setVerticalGroup(
             pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 440, Short.MAX_VALUE)
+            .addGroup(pnlCard1Layout.createSequentialGroup()
+                .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(55, 55, 55)
+                        .addComponent(rdbtn1))
+                    .addGroup(pnlCard1Layout.createSequentialGroup()
+                        .addGap(16, 16, 16)
+                        .addComponent(lbl1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(txt1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel4))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(txt2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel5)
+                            .addComponent(rdbtn2))))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(pnlCard1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel6)
+                    .addComponent(cb1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(btntk)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 316, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
 
-        pnlCards.add(pnlCard1, "card2");
+        pnlCards.add(pnlCard1, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 870, -1));
 
         pnlCard2.setBackground(new java.awt.Color(204, 204, 255));
+
+        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
+        jLabel3.setText("THÔNG TIN MƯỢN SÁCH");
+
+        tbl2.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane2.setViewportView(tbl2);
 
         javax.swing.GroupLayout pnlCard2Layout = new javax.swing.GroupLayout(pnlCard2);
         pnlCard2.setLayout(pnlCard2Layout);
         pnlCard2Layout.setHorizontalGroup(
             pnlCard2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addGroup(pnlCard2Layout.createSequentialGroup()
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
+            .addGroup(pnlCard2Layout.createSequentialGroup()
+                .addGap(70, 70, 70)
+                .addComponent(jLabel3)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         pnlCard2Layout.setVerticalGroup(
             pnlCard2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 440, Short.MAX_VALUE)
+            .addGroup(pnlCard2Layout.createSequentialGroup()
+                .addGap(15, 15, 15)
+                .addComponent(jLabel3)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
-        pnlCards.add(pnlCard2, "card3");
+        pnlCards.add(pnlCard2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 870, -1));
 
         pnlCard3.setBackground(new java.awt.Color(102, 102, 255));
+
+        jLabel7.setText("nhập mật khẩu cũ :");
+
+        jLabel8.setText("nhập mật khẩu mới: ");
+
+        jLabel9.setText("nhập lại mật khẩu: ");
+
+        check1.setText("hiển thị");
+        check1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                check1ActionPerformed(evt);
+            }
+        });
+
+        check2.setText("hiển thị");
+        check2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                check2ActionPerformed(evt);
+            }
+        });
+
+        check3.setText("hiển thị");
+        check3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                check3ActionPerformed(evt);
+            }
+        });
+
+        btn6.setText("Đổi");
+        btn6.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn6ActionPerformed(evt);
+            }
+        });
+
+        btn7.setText("huỷ");
+        btn7.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn7ActionPerformed(evt);
+            }
+        });
+
+        jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
+        jLabel10.setText("ĐỔI MẬT KHẨU");
 
         javax.swing.GroupLayout pnlCard3Layout = new javax.swing.GroupLayout(pnlCard3);
         pnlCard3.setLayout(pnlCard3Layout);
         pnlCard3Layout.setHorizontalGroup(
             pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addGroup(pnlCard3Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnlCard3Layout.createSequentialGroup()
+                        .addComponent(jLabel9)
+                        .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(pnlCard3Layout.createSequentialGroup()
+                                .addGap(21, 21, 21)
+                                .addComponent(btn6)
+                                .addGap(63, 63, 63)
+                                .addComponent(btn7)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 54, Short.MAX_VALUE))
+                            .addGroup(pnlCard3Layout.createSequentialGroup()
+                                .addGap(15, 15, 15)
+                                .addComponent(ptxt3)
+                                .addGap(17, 17, 17))))
+                    .addGroup(pnlCard3Layout.createSequentialGroup()
+                        .addComponent(jLabel7)
+                        .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(pnlCard3Layout.createSequentialGroup()
+                                .addGap(20, 20, 20)
+                                .addComponent(jLabel10)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(pnlCard3Layout.createSequentialGroup()
+                                .addGap(14, 14, 14)
+                                .addComponent(ptxt1, javax.swing.GroupLayout.PREFERRED_SIZE, 250, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                    .addGroup(pnlCard3Layout.createSequentialGroup()
+                        .addComponent(jLabel8)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(ptxt2)
+                        .addGap(17, 17, 17)))
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(check1)
+                    .addComponent(check2)
+                    .addComponent(check3)))
         );
         pnlCard3Layout.setVerticalGroup(
             pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 440, Short.MAX_VALUE)
+            .addGroup(pnlCard3Layout.createSequentialGroup()
+                .addGap(16, 16, 16)
+                .addComponent(jLabel10)
+                .addGap(18, 18, 18)
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel7)
+                    .addComponent(check1)
+                    .addComponent(ptxt1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel8)
+                    .addComponent(check2)
+                    .addComponent(ptxt2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel9)
+                    .addComponent(check3)
+                    .addComponent(ptxt3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(pnlCard3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btn6)
+                    .addComponent(btn7))
+                .addGap(0, 20, Short.MAX_VALUE))
         );
 
-        pnlCards.add(pnlCard3, "card4");
+        pnlCards.add(pnlCard3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 880, -1));
 
-        jSplitPane1.setRightComponent(pnlCards);
+        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/img/logo.jpg"))); // NOI18N
+        pnlCards.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, -1, -1));
 
         jPanel1.setBackground(new java.awt.Color(0, 0, 0));
         jPanel1.setToolTipText("");
@@ -408,22 +992,23 @@ public class home extends javax.swing.JFrame {
         });
         jPanel1.add(btn4);
 
-        jSplitPane1.setLeftComponent(jPanel1);
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addComponent(jSplitPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 335, Short.MAX_VALUE))
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(863, Short.MAX_VALUE))
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                    .addGap(0, 162, Short.MAX_VALUE)
+                    .addComponent(pnlCards, javax.swing.GroupLayout.PREFERRED_SIZE, 864, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jSplitPane1)
-                .addContainerGap())
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 755, Short.MAX_VALUE)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addComponent(pnlCards, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         pack();
@@ -433,17 +1018,19 @@ public class home extends javax.swing.JFrame {
         // TODO add your handling code here:
         showBorrowedBooks();
         java.awt.CardLayout cardLayout = (java.awt.CardLayout) pnlCards.getLayout();
-        cardLayout.show(pnlCards, "card3");
+        cardLayout.show(pnlCards, "card2");
     }//GEN-LAST:event_btn2ActionPerformed
 
     private void btn3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn3ActionPerformed
         // TODO add your handling code here:
-        searchBooks();
+        java.awt.CardLayout cardLayout = (java.awt.CardLayout) pnlCards.getLayout();
+        cardLayout.show(pnlCards, "card1");
     }//GEN-LAST:event_btn3ActionPerformed
 
     private void btn1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn1ActionPerformed
         // TODO add your handling code here:
-        changePassword();
+        java.awt.CardLayout cardLayout = (java.awt.CardLayout) pnlCards.getLayout();
+        cardLayout.show(pnlCards, "card3");
     }//GEN-LAST:event_btn1ActionPerformed
 
     private void btn4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn4ActionPerformed
@@ -463,33 +1050,115 @@ public class home extends javax.swing.JFrame {
             }
             System.exit(0);
         }
+    }
+
+    // Thêm nút mượn sách và trả sách vào menu
+    private void addMenuButtons() {
+        javax.swing.JButton btnMuonSach = new javax.swing.JButton("Mượn sách");
+        btnMuonSach.addActionListener(e -> borrowNewBook());
+        jPanel1.add(btnMuonSach);
+        
+        javax.swing.JButton btnTraSach = new javax.swing.JButton("Trả sách");
+        btnTraSach.addActionListener(e -> returnBook());
+        jPanel1.add(btnTraSach);
+        
+        // Refresh layout
+        jPanel1.revalidate();
+        jPanel1.repaint();
     }//GEN-LAST:event_btn4ActionPerformed
+
+    private void rdbtn2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rdbtn2ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_rdbtn2ActionPerformed
+
+    private void btntkActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btntkActionPerformed
+        // TODO add your handling code here:
+        if (rdbtn1.isSelected()) {
+            searchBooks();
+        } else if (rdbtn2.isSelected()) {
+            searchByCategory();
+        } else {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn loại tìm kiếm!");
+        }
+    }//GEN-LAST:event_btntkActionPerformed
+
+    private void btn6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn6ActionPerformed
+        // TODO add your handling code here:
+        changePassword();
+    }//GEN-LAST:event_btn6ActionPerformed
+
+    private void btn7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn7ActionPerformed
+        // TODO add your handling code here:
+        ptxt1.setText("");
+        ptxt2.setText("");
+        ptxt1.setText("");
+        // Đặt lại về trạng thái ẩn mật khẩu
+        ptxt1.setEchoChar('*');
+        ptxt2.setEchoChar('*');
+        ptxt3.setEchoChar('*');
+        check1.setSelected(false);
+        check2.setSelected(false);
+        check3.setSelected(false);
+    }//GEN-LAST:event_btn7ActionPerformed
+
+    private void check1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_check1ActionPerformed
+        // TODO add your handling code here:
+        if (check1.isSelected()) {
+            ptxt1.setEchoChar((char)0); // Hiển thị mật khẩu
+        } else {
+            ptxt1.setEchoChar('*'); // Ẩn mật khẩu
+        }
+    }//GEN-LAST:event_check1ActionPerformed
+
+    private void check2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_check2ActionPerformed
+        // TODO add your handling code here:
+        if (check2.isSelected()) {
+            ptxt2.setEchoChar((char)0); // Hiển thị mật khẩu
+        } else {
+            ptxt2.setEchoChar('*'); // Ẩn mật khẩu
+        }
+    }//GEN-LAST:event_check2ActionPerformed
+
+    private void check3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_check3ActionPerformed
+        // TODO add your handling code here:
+        if (check3.isSelected()) {
+            ptxt1.setEchoChar((char)0); // Hiển thị mật khẩu
+        } else {
+            ptxt1.setEchoChar('*'); // Ẩn mật khẩu
+        }
+    }//GEN-LAST:event_check3ActionPerformed
+
+    private void rdbtn1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rdbtn1ActionPerformed
+        // TODO add your handling code here:
+        if (rdbtn1.isSelected()) {
+            txt1.setEnabled(true);
+            txt2.setEnabled(false);
+            cb1.setEnabled(false);
+            txt1.requestFocus();
+        }
+    }//GEN-LAST:event_rdbtn1ActionPerformed
+
+    private void cb1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cb1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_cb1ActionPerformed
 
     /**
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        try {
+         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
                     javax.swing.UIManager.setLookAndFeel(info.getClassName());
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(home.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(home.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(home.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(home.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new home().setVisible(true);
-            }
-        });
+        java.awt.EventQueue.invokeLater(() -> {
+            new home().setVisible(true);
+         });
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -497,13 +1166,41 @@ public class home extends javax.swing.JFrame {
     private javax.swing.JButton btn2;
     private javax.swing.JButton btn3;
     private javax.swing.JButton btn4;
+    private javax.swing.JButton btn6;
+    private javax.swing.JButton btn7;
+    private javax.swing.JButton btntk;
+    private javax.swing.JComboBox<String> cb1;
+    private javax.swing.JCheckBox check1;
+    private javax.swing.JCheckBox check2;
+    private javax.swing.JCheckBox check3;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
+    private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JSplitPane jSplitPane1;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JPanel layout;
+    private javax.swing.JLabel lbl1;
     private javax.swing.JPanel pnlCard1;
     private javax.swing.JPanel pnlCard2;
     private javax.swing.JPanel pnlCard3;
     private javax.swing.JPanel pnlCards;
     private javax.swing.JPanel pnlflow;
+    private javax.swing.JPasswordField ptxt1;
+    private javax.swing.JPasswordField ptxt2;
+    private javax.swing.JPasswordField ptxt3;
+    private javax.swing.JRadioButton rdbtn1;
+    private javax.swing.JRadioButton rdbtn2;
+    private javax.swing.JTable tb1;
+    private javax.swing.JTable tbl2;
+    private javax.swing.JTextField txt1;
+    private javax.swing.JTextField txt2;
     // End of variables declaration//GEN-END:variables
 }
