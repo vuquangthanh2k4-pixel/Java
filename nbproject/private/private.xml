@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-private xmlns="http://www.netbeans.org/ns/project-private/1">
+    <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
+    <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
+        <group>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/View/Administrator.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/View/PhanQuyen.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/View/Student.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Database/ConnectDatabase.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/DAO/TaiKhoanDAO.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Controller/TaiKhoanAdminController.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Model/TaiKhoanAdmin.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/View/ChucNangCuaAdmin.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/DAO/TaiKhoanAdminDK.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Controller/CheckTextDangKyAdminController.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Controller/EncryptMatKhau.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/DAO/GetDataTacGiaDAO.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Model/TacGiaModel.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Controller/TacGiaController.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Model/NhaXuatBanModel.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/DAO/GetDataNhaXuatBanDAO.java</file>
+            <file>file:/D:/JAVA/QuanLyThuVien/src/Controller/NhaXuatBanController.java</file>
+        </group>
+    </open-files>
+</project-private>
