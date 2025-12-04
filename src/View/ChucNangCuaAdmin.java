@@ -1743,7 +1743,9 @@ public class ChucNangCuaAdmin extends javax.swing.JFrame {
     }//GEN-LAST:event_tblNhaXuatBanKeyPressed
 
     private void btnThoatActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnThoatActionPerformed
-        // TODO add your handling code here:
+        if(JOptionPane.showConfirmDialog(this, "Xác nhận thoát chứ?", "Thông báo", JOptionPane.YES_OPTION) == JOptionPane.YES_OPTION){
+            this.dispose();
+        }
     }//GEN-LAST:event_btnThoatActionPerformed
 
     private void jButton9ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton9ActionPerformed
